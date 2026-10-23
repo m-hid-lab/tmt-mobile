@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- 公開ページとして置いても検索結果に載らないようにする（QRを知っている人だけが開く想定） -->
+  <meta name="robots" content="noindex, nofollow">
+  <!-- iPhoneで「ホーム画面に追加」したときにアプリのように全画面で開く -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="TMTmobile">
+  <title>TMTmobile</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+
+    :root {
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #16213e;
+      --accent: #0f3460;
+      --blue: #4fc3f7;
+      --green: #66bb6a;
+      --red: #ef5350;
+      --yellow: #ffa726;
+      --text: #e8eaf6;
+      --text2: #9fa8da;
+      --cell-bg: #1e2a45;
+      --cell-border: #2a3f6f;
+      --cell-hover: #253555;
+      --cell-num: #4a9eca;   /* 数字もひらがなも同じ色 */
+    }
+
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      /* ノッチ・ホームバーを避ける（縦向きスマホ向け） */
+      padding: max(16px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+      -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation; /* ダブルタップでの拡大を防ぐ */
+      overscroll-behavior: none;
+    }
+    .screen { width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center; }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+      background: linear-gradient(135deg, var(--blue), #7c4dff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle { font-size: 0.75rem; color: var(--text2); margin-bottom: 18px; letter-spacing: 0.08em; }
+
+    /* ---- 患者ID入力画面 ---- */
+    .card {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--cell-border);
+      border-radius: 14px;
+      padding: 20px 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .card label { font-size: 0.9rem; font-weight: 700; }
+    .card input[type=text] {
+      width: 100%;
+      padding: 14px 12px;
+      font-size: 18px; /* 16px未満だとiPhoneで入力時に拡大される */
+      font-family: inherit;
+      border-radius: 10px;
+      border: 2px solid var(--cell-border);
+      background: var(--cell-bg);
+      color: var(--text);
+      -webkit-user-select: text; user-select: text;
+    }
+    .card input[type=text]:focus { outline: none; border-color: var(--blue); }
+    .hint { font-size: 0.75rem; color: var(--text2); line-height: 1.6; }
+    .err { font-size: 0.85rem; color: var(--red); min-height: 1.3em; }
+
+    .id-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.85rem; color: var(--text2); }
+    .id-bar b { color: var(--text); letter-spacing: 0.04em; }
+    .link-btn { background: none; border: none; color: var(--blue); font-size: 0.85rem; font-family: inherit; text-decoration: underline; padding: 8px 4px; cursor: pointer; }
+
+    /* ---- モード選択 ---- */
+    .mode-bar { display: flex; gap: 8px; margin-bottom: 14px; width: 100%; }
+    .mode-btn {
+      flex: 1;
+      padding: 8px 6px;
+      border-radius: 20px;
+      border: 2px solid var(--cell-border);
+      background: var(--surface);
+      color: var(--text2);
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn.active { background: var(--accent); border-color: var(--blue); color: var(--blue); }
+
+    /* ---- ステータス ---- */
+    .stats-bar {
+      width: 100%;
+      display: flex;
+      gap: 6px;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      background: var(--surface);
+      border: 1px solid var(--cell-border);
+      border-radius: 12px;
+      padding: 10px 8px;
+      align-items: center;
+    }
+    .stat { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+    .stat-label { font-size: 0.6rem; color: var(--text2); letter-spacing: 0.06em; margin-bottom: 2px; white-space: nowrap; }
+    .stat-value { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    #timer-val { color: var(--blue); }
+    #next-val { color: var(--yellow); font-size: 1.4rem; }
+    #errors-val { color: var(--red); }
+    #best-val { color: var(--green); font-size: 1rem; }
+    .divider { width: 1px; height: 36px; background: var(--cell-border); flex: none; }
+
+    /* ---- 盤面（縦画面で横幅いっぱいに使う） ---- */
+    .grid-wrapper { width: 100%; margin-bottom: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; width: 100%; }
+    .cell {
+      aspect-ratio: 1 / 1;
+      min-height: 44px;
+      border-radius: 10px;
+      border: 2px solid var(--cell-border);
+      background: var(--cell-bg);
+      color: var(--cell-num);               /* 数字もひらがなも同じ色 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(18px, 6.4vw, 30px);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      overflow: hidden;
+    }
+    @media (hover: hover) {
+      .cell:hover:not(.done):not(.disabled) { background: var(--cell-hover); border-color: var(--blue); transform: scale(1.05); }
+    }
+    /* 正解：緑に変わりそのまま残る */
+    .cell.hit { background: #2e7d32; border-color: #a5d6a7; color: #ffffff; animation: hitAnim 0.3s ease-out; }
+    @keyframes hitAnim { 0% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    /* 間違い：赤くなって揺れる */
+    .cell.miss { background: #c62828; border-color: #ff8a80; color: #ffffff; animation: shake 0.35s ease-out; }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+    .cell.done { opacity: 0.85; cursor: default; }
+    .cell.disabled { cursor: default; }
+
+    /* ---- ボタン ---- */
+    .controls { display: flex; gap: 12px; margin-bottom: 16px; width: 100%; }
+    .btn {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+    }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+    .btn-primary { background: linear-gradient(135deg, #0f3460, #1565c0); color: #fff; border: 1px solid var(--blue); }
+    .btn-secondary { background: var(--surface); color: var(--text2); border: 1px solid var(--cell-border); }
+
+    /* ---- 記録 ---- */
+    .history-section { width: 100%; }
+    .history-title { font-size: 0.75rem; color: var(--text2); letter-spacing: 0.1em; margin-bottom: 8px; text-align: center; }
+    .history-list { display: flex; flex-direction: column; gap: 4px; }
+    .history-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 6px;
+      background: var(--surface); border: 1px solid var(--cell-border); border-radius: 6px;
+      padding: 6px 10px; font-size: 0.82rem;
+    }
+    .history-item .h-mode { color: var(--text2); }
+    .history-item .h-time { color: var(--blue); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .history-item .h-err { color: var(--red); font-size: 0.75rem; }
+    .history-item .h-rank { color: var(--yellow); font-size: 0.85rem; }
+    .csv-row { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .csv-msg { color: var(--text2); font-size: 0.8rem; min-height: 1.4em; text-align: center; margin-top: 6px; }
+
+    /* ---- 結果 ---- */
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; padding: 16px; }
+    .overlay.visible { opacity: 1; pointer-events: all; }
+    .result-card { background: var(--surface2); border: 1px solid var(--blue); border-radius: 16px; padding: 28px 24px; text-align: center; transform: scale(0.85); transition: transform 0.3s; width: min(100%, 340px); }
+    .overlay.visible .result-card { transform: scale(1); }
+    .result-card h2 { font-size: 1.5rem; color: var(--blue); margin-bottom: 6px; }
+    .result-time { font-size: 3.2rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; margin: 12px 0 4px; }
+    .result-time span { font-size: 1.2rem; color: var(--text2); }
+    .result-details { display: flex; gap: 24px; justify-content: center; margin: 16px 0 16px; }
+    .result-detail { display: flex; flex-direction: column; align-items: center; }
+    .result-detail .rd-label { font-size: 0.7rem; color: var(--text2); letter-spacing: 0.1em; }
+    .result-detail .rd-val { font-size: 1.3rem; font-weight: 700; margin-top: 2px; }
+    .result-best { font-size: 0.85rem; color: var(--green); margin-bottom: 8px; min-height: 1.3em; }
+    .save-warn { font-size: 0.8rem; color: var(--red); margin-bottom: 12px; min-height: 1.2em; }
+
+    /* ---- 縦画面専用：横向きのときは案内を出す ---- */
+    .rotate-msg { display: none; }
+    @media (orientation: landscape) and (max-height: 520px) {
+      .rotate-msg {
+        display: flex; position: fixed; inset: 0; z-index: 200;
+        align-items: center; justify-content: center; text-align: center;
+        background: var(--bg); color: var(--text); font-size: 1.1rem; line-height: 1.8; padding: 24px;
+      }
+    }
+    @media (max-width: 360px) {
+      .stat-value { font-size: 1.15rem; }
+      #next-val { font-size: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ========== 患者ID入力画面 ========== -->
+<div class="screen" id="screen-id" hidden>
+  <h1>TMTmobile</h1>
+  <p class="subtitle">mobile Trail Making Test</p>
+  <div class="card">
+    <label for="pid-input">患者ID</label>
+    <input id="pid-input" type="text" placeholder="例：TM-0001" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" enterkeyhint="go">
+    <p class="hint">半角英数字・ハイフン・アンダースコアのみ（32文字まで）。<br>氏名・診察券番号・生年月日などは入力しないでください。</p>
+    <p class="err" id="pid-err" role="alert"></p>
+    <button class="btn btn-primary" id="pid-go" onclick="submitId()">はじめる</button>
+    <button class="link-btn" id="pid-cancel" onclick="cancelChangeId()" hidden>キャンセル</button>
+    <p class="hint">記録はこの端末の中にだけ保存され、外部には送信されません。</p>
+  </div>
+  <p class="err" id="fatal-err" role="alert" style="margin-top:12px"></p>
+</div>
+
+<!-- ========== メイン画面 ========== -->
+<div class="screen" id="screen-main" hidden>
+  <h1>TMTmobile</h1>
+  <p class="subtitle">mobile Trail Making Test</p>
+
+  <div class="id-bar">
+    <span>患者ID：<b id="pid-label"></b></span>
+    <button class="link-btn" onclick="changeId()">IDを変更</button>
+  </div>
+
+  <div class="mode-bar">
+    <button class="mode-btn active" onclick="setMode('A')">モード A<br><small style="font-weight:400;font-size:0.7em">数字のみ</small></button>
+    <button class="mode-btn" onclick="setMode('B')">モード B<br><small style="font-weight:400;font-size:0.7em">数字＋ひらがな</small></button>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-label">タイム</div><div class="stat-value" id="timer-val">0.00</div></div>
+    <div class="divider"></div>
+    <div class="stat"><div class="stat-label">次のターゲット</div><div class="stat-value" id="next-val">—</div></div>
+    <div class="divider"></div>
+    <div class="stat"><div class="stat-label">ミス</div><div class="stat-value" id="errors-val">0</div></div>
+    <div class="divider"></div>
+    <div class="stat"><div class="stat-label">ベスト</div><div class="stat-value" id="best-val">—</div></div>
+  </div>
+
+  <div class="grid-wrapper"><div class="grid" id="grid"></div></div>
+
+  <div class="controls">
+    <button class="btn btn-primary" id="start-btn" onclick="startGame()">スタート</button>
+    <button class="btn btn-secondary" onclick="resetGame()">リセット</button>
+  </div>
+
+  <div class="history-section">
+    <div class="history-title">最近の記録</div>
+    <div class="history-list" id="history-list"></div>
+    <div class="csv-row">
+      <button class="btn btn-secondary" id="csv-btn" onclick="exportCsv('summary')">記録をCSV保存</button>
+      <button class="link-btn" onclick="exportCsv('taps')">タップ詳細をCSV保存（解析用）</button>
+    </div>
+    <div class="csv-msg" id="csv-msg" role="status"></div>
+  </div>
+</div>
+
+<!-- 結果 -->
+<div class="overlay" id="overlay">
+  <div class="result-card">
+    <h2>クリア！</h2>
+    <div class="result-time" id="result-time">0<span> 秒</span></div>
+    <div class="result-details">
+      <div class="result-detail"><div class="rd-label">ミス</div><div class="rd-val" id="result-errors" style="color:var(--red)">0</div></div>
+      <div class="result-detail"><div class="rd-label">モード</div><div class="rd-val" id="result-mode" style="color:var(--blue)">A</div></div>
+    </div>
+    <div class="result-best" id="result-best"></div>
+    <div class="save-warn" id="save-warn" role="alert"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" onclick="closeOverlay(); startGame()">もう一度</button>
+      <button class="btn btn-secondary" onclick="closeOverlay()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div class="rotate-msg">画面を縦向きにしてください<br>（スマートフォンを縦に持って使います）</div>
+
+<script>const APP_VERSION="1.0.0",ID_PATTERN=/^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/,HISTORY_SHOWN=10,COLS=5,KANA=["あ","い","う","え","お","か","き","く","け","こ","さ","し"];let db=null,participantId="",cache=[],mode="A",sequence=[],positions=[],currentIdx=0,errors=0,timerInterval=null,startTime=null,startIso=null,elapsed=0,running=!1,finished=!1,taps=[],layout=[];const $=t=>document.getElementById(t);function p2(t){return String(t).padStart(2,"0")}function formatTime(t){return(t/1e3).toFixed(2)}function uuid(){try{if(crypto.randomUUID)return crypto.randomUUID()}catch{}const t=crypto.getRandomValues(new Uint8Array(16));t[6]=t[6]&15|64,t[8]=t[8]&63|128;const e=[...t].map(n=>n.toString(16).padStart(2,"0")).join("");return`${e.slice(0,8)}-${e.slice(8,12)}-${e.slice(12,16)}-${e.slice(16,20)}-${e.slice(20)}`}function collectDeviceInfo(){const t=navigator.userAgent||"";let e="other";/iPhone|iPad|iPod/i.test(t)||/Macintosh/i.test(t)&&navigator.maxTouchPoints>1?e="iOS":/Android/i.test(t)?e="Android":/Windows/i.test(t)?e="Windows":/Macintosh/i.test(t)?e="macOS":/Linux/i.test(t)&&(e="Linux");let n="other";return/Edg\//i.test(t)?n="Edge":/FxiOS|Firefox/i.test(t)?n="Firefox":/CriOS|Chrome/i.test(t)?n="Chrome":/Safari/i.test(t)&&(n="Safari"),{screenWidth:window.innerWidth,screenHeight:window.innerHeight,devicePixelRatio:window.devicePixelRatio||1,orientation:window.innerWidth>=window.innerHeight?"landscape":"portrait",osClass:e,browserClass:n}}function openDb(){return new Promise((t,e)=>{if(!window.indexedDB){e(new Error("IndexedDB unavailable"));return}const n=indexedDB.open("tmtmobile",1);n.onupgradeneeded=()=>{const r=n.result;r.createObjectStore("trials",{keyPath:"trialId"}).createIndex("participantId","participantId"),r.createObjectStore("meta",{keyPath:"key"})},n.onsuccess=()=>{n.result.onversionchange=()=>n.result.close(),t(n.result)},n.onerror=()=>e(n.error)})}function reqP(t){return new Promise((e,n)=>{t.onsuccess=()=>e(t.result),t.onerror=()=>n(t.error)})}function put(t,e){return new Promise((n,r)=>{const a=db.transaction(t,"readwrite");a.objectStore(t).put(e),a.oncomplete=()=>n(),a.onerror=()=>r(a.error),a.onabort=()=>r(a.error||new Error("aborted"))})}const getAllTrials=()=>reqP(db.transaction("trials","readonly").objectStore("trials").getAll()),getTrialsOf=t=>reqP(db.transaction("trials","readonly").objectStore("trials").index("participantId").getAll(t)),getMeta=t=>reqP(db.transaction("meta","readonly").objectStore("meta").get(t));function getHistory(){return cache}function getBest(t){const e=cache.filter(n=>n.mode===t);return e.length?Math.min(...e.map(n=>n.completionTimeMs)):null}function showScreen(t){$("screen-id").hidden=t!=="id",$("screen-main").hidden=t!=="main"}function showIdScreen(t){resetTimerState(),$("pid-err").textContent="",$("pid-input").value=participantId||"",$("pid-cancel").hidden=!t,showScreen("id"),setTimeout(()=>{try{$("pid-input").focus()}catch{}},50)}function changeId(){showIdScreen(!0)}function cancelChangeId(){showScreen("main")}async function submitId(){const t=$("pid-input").value.trim();if(!ID_PATTERN.test(t)){$("pid-err").textContent="半角英数字・ハイフン・アンダースコアで入力してください（氏名は入力しないでください）。";return}$("pid-go").disabled=!0;try{await activateParticipant(t)}catch{$("pid-err").textContent="記録を読み込めませんでした。もう一度お試しください。",$("pid-go").disabled=!1;return}$("pid-go").disabled=!1,showScreen("main")}async function activateParticipant(t){const e=await getTrialsOf(t);e.sort((n,r)=>n.startDatetime<r.startDatetime?1:-1),participantId=t,cache=e,await put("meta",{key:"lastParticipantId",value:t}),navigator.storage&&navigator.storage.persist&&navigator.storage.persist().catch(()=>{}),$("pid-label").textContent=t,$("csv-msg").textContent="",mode="A",document.querySelectorAll(".mode-btn").forEach((n,r)=>n.classList.toggle("active",r===0)),resetGame(),updateHistoryList()}function setMode(t){mode=t,document.querySelectorAll(".mode-btn").forEach((e,n)=>{e.classList.toggle("active",n===0&&t==="A"||n===1&&t==="B")}),resetGame()}function shuffle(t){const e=t.slice();for(let n=e.length-1;n>0;n--){const r=Math.floor(Math.random()*(n+1));[e[n],e[r]]=[e[r],e[n]]}return e}function buildSequence(){if(mode==="A")sequence=Array.from({length:25},(t,e)=>({value:String(e+1),type:"num"}));else{sequence=[];for(let t=1;t<=13;t++)sequence.push({value:String(t),type:"num"}),t<=12&&sequence.push({value:KANA[t-1],type:"alpha"})}positions=shuffle(sequence),layout=positions.map((t,e)=>({label:t.value,row:Math.floor(e/5),col:e%5}))}function renderGrid(){const t=$("grid");t.innerHTML="",positions.forEach((e,n)=>{const r=document.createElement("div");r.className=`cell ${e.type}`,r.textContent=e.value,r.dataset.value=e.value,r.dataset.row=String(Math.floor(n/5)),r.dataset.col=String(n%5),r.classList.add("disabled"),r.addEventListener("pointerdown",a=>{a.pointerType==="mouse"&&a.button!==0||handleTap(r)}),t.appendChild(r)})}function getCellByValue(t){return document.querySelector(`.cell[data-value="${CSS.escape(t)}"]`)}function highlightNext(){if(document.querySelectorAll(".cell.next-target").forEach(t=>t.classList.remove("next-target")),currentIdx<sequence.length){const t=getCellByValue(sequence[currentIdx].value);t&&t.classList.add("next-target")}}function updateNextDisplay(){const t=$("next-val");if(!running||finished){t.textContent="—";return}currentIdx<sequence.length&&(t.textContent=sequence[currentIdx].value)}function updateBestDisplay(){const t=getBest(mode);$("best-val").textContent=t?formatTime(t):"—"}function tickTimer(){elapsed=performance.now()-startTime,$("timer-val").textContent=formatTime(elapsed)}function handleTap(t){if(!running||finished)return;const e=t.dataset.value,n=sequence[currentIdx].value,r=e===n;taps.push({tapIndex:taps.length+1,elapsedMs:Math.round(performance.now()-startTime),expected:n,pressed:e,correct:r,row:Number(t.dataset.row),col:Number(t.dataset.col)}),r?(t.classList.remove("next-target"),t.classList.add("hit","done"),t.style.pointerEvents="none",currentIdx++,currentIdx>=sequence.length?endGame():(highlightNext(),updateNextDisplay())):(errors++,$("errors-val").textContent=errors,t.classList.add("miss"),navigator.vibrate&&navigator.vibrate(80),setTimeout(()=>t.classList.remove("miss"),700))}function resetTimerState(){clearInterval(timerInterval),running=!1,finished=!1}function startGame(){running&&resetGame(),buildSequence(),renderGrid(),document.querySelectorAll(".cell").forEach(t=>t.classList.remove("disabled")),currentIdx=0,errors=0,elapsed=0,taps=[],finished=!1,$("errors-val").textContent="0",$("timer-val").textContent="0.00",$("start-btn").textContent="進行中…",$("start-btn").disabled=!0,running=!0,updateBestDisplay(),highlightNext(),updateNextDisplay(),startTime=performance.now(),startIso=new Date().toISOString(),timerInterval=setInterval(tickTimer,50)}function endGame(){elapsed=performance.now()-startTime,clearInterval(timerInterval),running=!1,finished=!0,$("timer-val").textContent=formatTime(elapsed);const t=Math.round(elapsed),e=getBest(mode),n=!e||t<e,r={trialId:uuid(),participantId,mode,appVersion:APP_VERSION,startDatetime:startIso,completionTimeMs:t,errors,completed:!0,boardLayout:layout,taps,device:collectDeviceInfo()};cache.unshift(r),$("save-warn").textContent="",put("trials",r).catch(()=>{$("save-warn").textContent="記録を保存できませんでした。端末の空き容量やブラウザの設定を確認してください。"});const a=formatTime(t),[i,s]=a.split(".");$("result-time").innerHTML=`${i}<span>.${s} 秒</span>`,$("result-errors").textContent=errors,$("result-mode").textContent=`モード ${mode}`,$("result-best").textContent=n?"★ 新記録！":`ベスト: ${formatTime(getBest(mode))} 秒`,$("start-btn").textContent="スタート",$("start-btn").disabled=!1,$("overlay").classList.add("visible"),updateHistoryList(),updateBestDisplay()}function resetGame(){resetTimerState(),currentIdx=0,errors=0,elapsed=0,taps=[],$("timer-val").textContent="0.00",$("errors-val").textContent="0",$("next-val").textContent="—",$("start-btn").textContent="スタート",$("start-btn").disabled=!1,buildSequence(),renderGrid(),updateBestDisplay()}function closeOverlay(){$("overlay").classList.remove("visible")}function updateHistoryList(){const t=$("history-list"),e=getHistory().slice(0,10);if(t.innerHTML="",!e.length){t.innerHTML='<div style="text-align:center;color:var(--text2);font-size:0.8rem;padding:8px">記録なし</div>';return}e.forEach((n,r)=>{const a=document.createElement("div");a.className="history-item";const i=new Date(n.startDatetime),s=`${i.getMonth()+1}/${i.getDate()} ${p2(i.getHours())}:${p2(i.getMinutes())}`;a.innerHTML=`
+        <span class="h-rank">${r===0?"🕐":`#${r+1}`}</span>
+        <span class="h-mode">モード ${n.mode}</span>
+        <span class="h-time">${formatTime(n.completionTimeMs)}秒</span>
+        <span class="h-err">ミス ${n.errors}</span>
+        <span style="color:var(--text2);font-size:0.72rem">${s}</span>
+      `,t.appendChild(a)})}function csvCell(t){if(t==null)return"";if(typeof t=="boolean")return t?"true":"false";let e=String(t);return typeof t=="string"&&/^[=+\-@\t\r]/.test(e)&&(e="'"+e),/[",\r\n]/.test(e)?'"'+e.replace(/"/g,'""')+'"':e}function dateTimeStr(t){const e=new Date(t);return`${e.getFullYear()}-${p2(e.getMonth()+1)}-${p2(e.getDate())} ${p2(e.getHours())}:${p2(e.getMinutes())}:${p2(e.getSeconds())}`}function downloadCsv(t,e){const n=new Blob(["\uFEFF"+e.join(`\r
+`)+`\r
+`],{type:"text/csv;charset=utf-8"}),r=URL.createObjectURL(n),a=document.createElement("a");a.href=r,a.download=t,document.body.appendChild(a),a.click(),a.remove(),setTimeout(()=>URL.revokeObjectURL(r),1e4)}async function exportCsv(t){const e=$("csv-msg");let n;try{n=await getAllTrials()}catch{e.textContent="記録を読み込めませんでした";return}if(!n.length){e.textContent="保存する記録がありません";return}n.sort((o,c)=>o.startDatetime<c.startDatetime?-1:1);const r=new Date,a=`${r.getFullYear()}${p2(r.getMonth()+1)}${p2(r.getDate())}`;let i;const s=[];t==="taps"?(i=`TMTmobile_タップ詳細_${a}.csv`,s.push("trial_id,patient_id,start_datetime,mode,tap_index,elapsed_ms,inter_tap_ms,expected,pressed,correct,row,col"),n.forEach(o=>{let c=0;o.taps.forEach(l=>{s.push([o.trialId,o.participantId,dateTimeStr(o.startDatetime),o.mode,l.tapIndex,l.elapsedMs,l.elapsedMs-c,l.expected,l.pressed,l.correct,l.row,l.col].map(csvCell).join(",")),c=l.elapsedMs})})):(i=`TMTmobile_記録_${a}.csv`,s.push("日時,患者ID,モード,タイム（秒）,ミス回数"),n.forEach(o=>{s.push([dateTimeStr(o.startDatetime),o.participantId,o.mode,formatTime(o.completionTimeMs),o.errors].map(csvCell).join(","))})),downloadCsv(i,s),e.textContent=t==="taps"?`${n.length}件の試行のタップ詳細をCSVにしました（${i}）`:`${n.length}件の記録をCSVにしました（${i}）`}$("pid-input").addEventListener("keydown",t=>{t.key==="Enter"&&submitId()}),$("overlay").addEventListener("click",function(t){t.target===this&&closeOverlay()}),(async function(){try{db=await openDb()}catch{showScreen("id"),$("pid-go").disabled=!0,$("pid-input").disabled=!0,$("fatal-err").textContent="この環境では記録を保存できません（プライベートブラウズ等）。通常のブラウザ画面でお試しください。";return}let e=null;try{const n=await getMeta("lastParticipantId");e=n?n.value:null}catch{}if(e&&ID_PATTERN.test(e))try{await activateParticipant(e),showScreen("main");return}catch{}showIdScreen(!1)})();
+</script>
+</body>
+</html>
